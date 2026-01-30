@@ -5,11 +5,25 @@ Reads current temperature and humidity from Ecobee via Home Assistant API
 
 import requests
 import json
+import os
 from datetime import datetime
 
-# Configuration
-HOME_ASSISTANT_URL = "http://10.20.27.40:8123"
-HOME_ASSISTANT_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI2ODUzNWVhZWRmYWY0NGJlOGVjODViMmI2ZTIxNWY5NyIsImlhdCI6MTc2OTc0MjQwNywiZXhwIjoyMDg1MTAyNDA3fQ.QF5Yf4jRrqq5KijgrZdeK7CyKY6iiXcJ6NXBQDXWUyg"
+# Configuration - Load from environment variables
+HOME_ASSISTANT_URL = os.getenv("HOME_ASSISTANT_URL", "http://10.20.27.40:8123")
+HOME_ASSISTANT_TOKEN = os.getenv("HOME_ASSISTANT_TOKEN")
+
+# Check if token is set
+if not HOME_ASSISTANT_TOKEN:
+    print("=" * 60)
+    print("ERROR: HOME_ASSISTANT_TOKEN not set!")
+    print("=" * 60)
+    print("Set it with:")
+    print('export HOME_ASSISTANT_TOKEN="your-token-here"')
+    print("\nOr add to ~/.bashrc for persistence:")
+    print('echo \'export HOME_ASSISTANT_TOKEN="your-token"\' >> ~/.bashrc')
+    print("source ~/.bashrc")
+    print("=" * 60)
+    exit(1)
 
 def get_ecobee_data():
     """Fetch current Ecobee temperature and humidity"""
@@ -23,21 +37,24 @@ def get_ecobee_data():
         # Get temperature
         temp_response = requests.get(
             f"{HOME_ASSISTANT_URL}/api/states/sensor.my_ecobee_current_temperature",
-            headers=headers
+            headers=headers,
+            timeout=10
         )
         temp_data = temp_response.json()
         
         # Get humidity
         humidity_response = requests.get(
             f"{HOME_ASSISTANT_URL}/api/states/sensor.my_ecobee_current_humidity",
-            headers=headers
+            headers=headers,
+            timeout=10
         )
         humidity_data = humidity_response.json()
         
         # Get HVAC status
         hvac_response = requests.get(
             f"{HOME_ASSISTANT_URL}/api/states/climate.my_ecobee",
-            headers=headers
+            headers=headers,
+            timeout=10
         )
         hvac_data = hvac_response.json()
         
@@ -56,8 +73,14 @@ def get_ecobee_data():
         
         return reading
         
+    except requests.exceptions.RequestException as e:
+        print(f"Network error reading Ecobee data: {e}")
+        return None
+    except KeyError as e:
+        print(f"Error parsing Ecobee data - missing key: {e}")
+        return None
     except Exception as e:
-        print(f"Error reading Ecobee data: {e}")
+        print(f"Unexpected error reading Ecobee data: {e}")
         return None
 
 if __name__ == "__main__":
